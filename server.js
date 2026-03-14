@@ -9,111 +9,74 @@ app.use(express.json());
 
 const userState = {};
 
-// Home route
 app.get("/", (req, res) => {
   res.send("WhatsApp Bot is Running 🚀");
 });
 
-// WhatsApp webhook
 app.post("/whatsapp", async (req, res) => {
-  const incomingMsg = (req.body.Body || "").trim();
-  const cleanMsg = incomingMsg.toLowerCase();
-  const from = req.body.From;
-
   const twiml = new MessagingResponse();
   let reply = "";
 
   try {
+    const incomingMsg = String(req.body.Body || "").trim();
+    const cleanMsg = incomingMsg.toLowerCase();
+    const from = String(req.body.From || "unknown");
+
+    console.log("BODY:", req.body);
+    console.log("MSG:", incomingMsg);
+    console.log("FROM:", from);
 
     if (!userState[from]) {
       userState[from] = { step: "menu" };
     }
 
-    // Greeting
     if (cleanMsg === "hi" || cleanMsg === "hello") {
       userState[from] = { step: "menu" };
-
       reply =
         "Hello 👋 Welcome!\n\n" +
         "1️⃣ Services\n" +
         "2️⃣ Pricing\n" +
         "3️⃣ Book Demo";
-
-    }
-
-    // Services
-    else if (cleanMsg === "1") {
-
+    } else if (cleanMsg === "1") {
       reply =
         "We provide:\n\n" +
         "• AI Chatbots\n" +
         "• WhatsApp Automation\n" +
         "• AI Voice Agents";
-
-    }
-
-    // Pricing
-    else if (cleanMsg === "2") {
-
+    } else if (cleanMsg === "2") {
       reply =
         "Our pricing depends on your needs.\n\n" +
         "Please tell us about your business.";
-
-    }
-
-    // Book Demo
-    else if (cleanMsg === "3") {
-
+    } else if (cleanMsg === "3") {
       userState[from].step = "ask_name";
-
-      reply = "Great! Please send your *Name*.";
-
-    }
-
-    // Ask Name
-    else if (userState[from].step === "ask_name") {
-
+      reply = "Great! Please send your Name.";
+    } else if (userState[from].step === "ask_name") {
       userState[from].name = incomingMsg;
       userState[from].step = "ask_business";
-
-      reply = "Please send your *Business Name*.";
-
-    }
-
-    // Ask Business
-    else if (userState[from].step === "ask_business") {
-
+      reply = "Please send your Business Name.";
+    } else if (userState[from].step === "ask_business") {
       userState[from].businessName = incomingMsg;
       userState[from].step = "ask_phone";
-
-      reply = "Please send your *Phone Number*.";
-
-    }
-
-    // Ask Phone
-    else if (userState[from].step === "ask_phone") {
-
+      reply = "Please send your Phone Number.";
+    } else if (userState[from].step === "ask_phone") {
       userState[from].phone = incomingMsg;
       userState[from].step = "ask_requirement";
-
-      reply = "Please send your *Requirement*.";
-
-    }
-
-    // Ask Requirement
-    else if (userState[from].step === "ask_requirement") {
-
+      reply = "Please send your Requirement.";
+    } else if (userState[from].step === "ask_requirement") {
       userState[from].requirement = incomingMsg;
 
-      // Send data to n8n
       await axios.post(
         "https://elevateaisystems6.app.n8n.cloud/webhook/whatsapp-lead",
         {
-          name: userState[from].name,
-          businessName: userState[from].businessName,
-          phone: userState[from].phone,
-          message: userState[from].requirement,
+          name: userState[from].name || "",
+          businessName: userState[from].businessName || "",
+          phone: userState[from].phone || "",
+          message: userState[from].requirement || "",
           source: "WhatsApp Bot",
+        },
+        {
+          headers: { "Content-Type": "application/json" },
+          timeout: 15000,
         }
       );
 
@@ -122,29 +85,20 @@ app.post("/whatsapp", async (req, res) => {
         "Our team will contact you soon.";
 
       userState[from] = { step: "menu" };
-
-    }
-
-    else {
-
+    } else {
       reply =
         "Please reply with:\n\n" +
         "1️⃣ Services\n" +
         "2️⃣ Pricing\n" +
         "3️⃣ Book Demo";
-
     }
-
   } catch (error) {
-
-    console.log("Webhook error:", error.message);
-
+    console.error("FULL ERROR:", error.message);
+    console.error("ERROR DATA:", error.response?.data);
     reply = "Something went wrong. Please try again.";
-
   }
 
   twiml.message(reply);
-
   res.writeHead(200, { "Content-Type": "text/xml" });
   res.end(twiml.toString());
 });
