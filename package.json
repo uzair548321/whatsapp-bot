@@ -11,7 +11,8 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "express": "^5.2.1",
+    "axios": "^1.8.2",
+    "express": "^4.21.2",
     "twilio": "^5.13.0"
   }
 }

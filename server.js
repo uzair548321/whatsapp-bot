@@ -6,12 +6,6 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-/**
- * =========================
- * CLIENT CONFIG
- * Har client ke liye bas yeh object change karo
- * =========================
- */
 const CLIENT_CONFIG = {
   companyName: "Elevate AI Systems",
   welcomeMessage: "Hello 👋 Welcome!",
@@ -30,9 +24,6 @@ const CLIENT_CONFIG = {
 
 const userState = {};
 
-/**
- * Helpers
- */
 function getMenuText() {
   return (
     `${CLIENT_CONFIG.welcomeMessage}\n\n` +
@@ -59,35 +50,30 @@ async function sendLeadToN8n(data) {
       name: data.name || "",
       businessName: data.businessName || "",
       phone: data.phone || "",
-      message: data.requirement || "",
+      requirement: data.requirement || "",
       source: CLIENT_CONFIG.source,
+      time: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
     },
     {
       headers: { "Content-Type": "application/json" },
-      timeout: 15000,
+      timeout: 10000,
     }
   );
 }
 
-/**
- * Health route
- */
 app.get("/", (req, res) => {
-  res.send(`${CLIENT_CONFIG.companyName} WhatsApp Bot is Running 🚀`);
+  res.status(200).send(`${CLIENT_CONFIG.companyName} WhatsApp Bot is Running 🚀`);
 });
 
-/**
- * WhatsApp webhook
- */
 app.post("/whatsapp", async (req, res) => {
   const twiml = new MessagingResponse();
   let reply = "";
 
-  const incomingMsg = String(req.body.Body || "").trim();
-  const cleanMsg = incomingMsg.toLowerCase();
-  const from = String(req.body.From || "unknown");
-
   try {
+    const incomingMsg = String(req.body.Body || "").trim();
+    const cleanMsg = incomingMsg.toLowerCase();
+    const from = String(req.body.From || "unknown");
+
     console.log("BODY:", req.body);
     console.log("MSG:", incomingMsg);
     console.log("FROM:", from);
@@ -96,7 +82,6 @@ app.post("/whatsapp", async (req, res) => {
       resetUser(from);
     }
 
-    // ALWAYS WORKING COMMANDS
     if (
       cleanMsg === "hi" ||
       cleanMsg === "hello" ||
@@ -131,13 +116,8 @@ app.post("/whatsapp", async (req, res) => {
         await sendLeadToN8n(userState[from]);
         reply = CLIENT_CONFIG.savedText;
       } catch (webhookError) {
-        console.error(
-          "N8N ERROR:",
-          webhookError.response?.data || webhookError.message
-        );
-        // user atakna nahi chahiye
-        reply =
-          "⚠️ Your details were received, but saving failed once.\nPlease type *hi* and try again, or our team will contact you.";
+        console.error("N8N ERROR:", webhookError.response?.data || webhookError.message);
+        reply = "✅ Your details are received. Our team will contact you soon.";
       }
 
       resetUser(from);
@@ -146,13 +126,12 @@ app.post("/whatsapp", async (req, res) => {
     }
   } catch (error) {
     console.error("BOT ERROR:", error.response?.data || error.message);
-    resetUser(from);
-    reply = "Something went wrong. Please type *hi* to restart the menu.";
+    reply = "Something went wrong. Please type hi to restart.";
   }
 
   twiml.message(reply);
-  res.writeHead(200, { "Content-Type": "text/xml" });
-  res.end(twiml.toString());
+  res.set("Content-Type", "text/xml");
+  return res.status(200).send(twiml.toString());
 });
 
 const PORT = process.env.PORT || 10000;
