@@ -1,18 +1,24 @@
 {
   "name": "whatsapp-bot",
   "version": "1.0.0",
-  "description": "",
+  "description": "WhatsApp booking bot for businesses",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "whatsapp",
+    "bot",
+    "twilio",
+    "automation"
+  ],
+  "author": "Uzair",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
     "axios": "^1.8.2",
     "express": "^4.21.2",
+    "nodemailer": "^6.9.15",
     "twilio": "^5.13.0"
   }
 }
