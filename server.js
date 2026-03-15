@@ -1,6 +1,6 @@
 const express = require("express");
 const { MessagingResponse } = require("twilio").twiml;
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 const CLIENT = require("./hairclub");
 
 const app = express();
@@ -8,24 +8,7 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-const EMAIL_USER = "aitravelassistant1@gmail.com";
-const EMAIL_PASS = "dyytjriulauvihic";
-
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: EMAIL_USER,
-    pass: EMAIL_PASS
-  }
-});
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.log("MAIL VERIFY ERROR:", error);
-  } else {
-    console.log("Mail server is ready");
-  }
-});
+const resend = new Resend("re_4LEmVHxv_C6PS1rvy855FdsuZvbArBdP4");
 
 const userState = {};
 
@@ -40,9 +23,9 @@ function resetUser(from) {
 }
 
 async function sendLeadEmail(data) {
-  const mailOptions = {
-    from: EMAIL_USER,
-    to: CLIENT.leadEmail,
+  await resend.emails.send({
+    from: "The Hair Club <onboarding@resend.dev>",
+    to: [CLIENT.leadEmail],
     subject: `New Appointment - ${CLIENT.businessName}`,
     text:
       `New Appointment Request\n\n` +
@@ -53,9 +36,7 @@ async function sendLeadEmail(data) {
       `Business: ${CLIENT.businessName}\n` +
       `Address: ${CLIENT.address}\n` +
       `Source: WhatsApp Bot`
-  };
-
-  await transporter.sendMail(mailOptions);
+  });
 }
 
 app.get("/", (req, res) => {
