@@ -10,7 +10,7 @@ module.exports = {
 
   address: "DN Tower, near Kela Nagar, Dodhpur, Aligarh, Uttar Pradesh 202001",
 
-  leadEmail: "cameroncambay6@gmail.com",
+  leadEmail: "aitravelassistant1@gmail.com",
 
   menuText:
     "Welcome to The Hair Club ✨\n\n" +
