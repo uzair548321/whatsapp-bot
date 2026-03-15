@@ -8,12 +8,22 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-// Gmail transporter
+const EMAIL_USER = "aitravelassistant1@gmail.com";
+const EMAIL_PASS = "dyytjriulauvihic";
+
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "aitravelassistant1@gmail.com",
-    pass: "kphhgabbovdlmmky"
+    user: EMAIL_USER,
+    pass: EMAIL_PASS
+  }
+});
+
+transporter.verify((error, success) => {
+  if (error) {
+    console.log("MAIL VERIFY ERROR:", error);
+  } else {
+    console.log("Mail server is ready");
   }
 });
 
@@ -31,7 +41,7 @@ function resetUser(from) {
 
 async function sendLeadEmail(data) {
   const mailOptions = {
-    from: "cameroncambay6@gmail.com",
+    from: EMAIL_USER,
     to: CLIENT.leadEmail,
     subject: `New Appointment - ${CLIENT.businessName}`,
     text:
@@ -69,7 +79,6 @@ app.post("/whatsapp", async (req, res) => {
     console.log("MSG:", incomingMsg);
     console.log("STEP BEFORE:", userState[from].step);
 
-    // Always working commands
     if (
       cleanMsg === "hi" ||
       cleanMsg === "hello" ||
@@ -78,10 +87,7 @@ app.post("/whatsapp", async (req, res) => {
     ) {
       resetUser(from);
       reply = CLIENT.menuText;
-    }
-
-    // Appointment flow first
-    else if (userState[from].step === "ask_name") {
+    } else if (userState[from].step === "ask_name") {
       userState[from].name = incomingMsg;
       userState[from].step = "ask_phone";
       reply = "Please send your phone number.";
@@ -120,16 +126,13 @@ app.post("/whatsapp", async (req, res) => {
           `Preferred Time: ${userState[from].time}\n\n` +
           `Our team will contact you soon.`;
       } catch (emailError) {
-        console.error("EMAIL ERROR:", emailError.message);
+        console.error("EMAIL ERROR:", emailError);
         reply =
           "Your appointment request was received, but email notification failed. Please try again.";
       }
 
       resetUser(from);
-    }
-
-    // Menu options after step flow
-    else if (cleanMsg === "1") {
+    } else if (cleanMsg === "1") {
       reply = "Haircut price is ₹200.\n\nReply 5 to book appointment or type menu.";
     } else if (cleanMsg === "2") {
       reply = "Beard Set price is ₹150.\n\nReply 5 to book appointment or type menu.";
@@ -149,7 +152,7 @@ app.post("/whatsapp", async (req, res) => {
     console.log("STEP AFTER:", userState[from]?.step);
     console.log("STATE:", userState[from]);
   } catch (error) {
-    console.error("BOT ERROR:", error.message);
+    console.error("BOT ERROR:", error);
     reply = "Something went wrong. Please type hi to restart.";
   }
 
