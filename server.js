@@ -31,12 +31,13 @@ app.post("/whatsapp", (req, res) => {
   const cleanMsg = incomingMsg.toLowerCase();
   const from = String(req.body.From || "unknown");
 
-  console.log("MSG:", incomingMsg);
-  console.log("FROM:", from);
-
   if (!userState[from]) {
     resetUser(from);
   }
+
+  console.log("FROM:", from);
+  console.log("MSG:", incomingMsg);
+  console.log("STEP BEFORE:", userState[from].step);
 
   if (
     cleanMsg === "hi" ||
@@ -66,14 +67,20 @@ app.post("/whatsapp", (req, res) => {
   } else if (userState[from].step === "ask_phone") {
     userState[from].phone = incomingMsg;
     userState[from].step = "ask_service";
-    reply = "Which service do you want?\n1 Haircut\n2 Beard Set\n3 Hair Spa\n4 Unisex Salon";
+    reply =
+      "Which service do you want?\n" +
+      "1 Haircut\n" +
+      "2 Beard Set\n" +
+      "3 Hair Spa\n" +
+      "4 Unisex Salon";
   } else if (userState[from].step === "ask_service") {
-    let selectedService = incomingMsg;
+    let selectedService = "";
 
     if (incomingMsg === "1") selectedService = "Haircut";
-    if (incomingMsg === "2") selectedService = "Beard Set";
-    if (incomingMsg === "3") selectedService = "Hair Spa";
-    if (incomingMsg === "4") selectedService = "Unisex Salon";
+    else if (incomingMsg === "2") selectedService = "Beard Set";
+    else if (incomingMsg === "3") selectedService = "Hair Spa";
+    else if (incomingMsg === "4") selectedService = "Unisex Salon";
+    else selectedService = incomingMsg;
 
     userState[from].service = selectedService;
     userState[from].step = "ask_time";
@@ -93,6 +100,9 @@ app.post("/whatsapp", (req, res) => {
   } else {
     reply = "Please type hi to see the menu.";
   }
+
+  console.log("STEP AFTER:", userState[from]?.step);
+  console.log("STATE:", userState[from]);
 
   twiml.message(reply);
   res.set("Content-Type", "text/xml");
