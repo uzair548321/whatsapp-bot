@@ -39,6 +39,7 @@ app.post("/whatsapp", (req, res) => {
   console.log("MSG:", incomingMsg);
   console.log("STEP BEFORE:", userState[from].step);
 
+  // Always-working commands
   if (
     cleanMsg === "hi" ||
     cleanMsg === "hello" ||
@@ -47,20 +48,10 @@ app.post("/whatsapp", (req, res) => {
   ) {
     resetUser(from);
     reply = CLIENT.menuText;
-  } else if (cleanMsg === "1") {
-    reply = "Haircut price is ₹200.\n\nReply 5 to book appointment or type menu.";
-  } else if (cleanMsg === "2") {
-    reply = "Beard Set price is ₹150.\n\nReply 5 to book appointment or type menu.";
-  } else if (cleanMsg === "3") {
-    reply = "Hair Spa price is ₹1400.\n\nReply 5 to book appointment or type menu.";
-  } else if (cleanMsg === "4") {
-    reply = "Unisex Salon service is available.\n\nReply 5 to book appointment or type menu.";
-  } else if (cleanMsg === "6") {
-    reply = `Our address is:\n${CLIENT.address}`;
-  } else if (cleanMsg === "5") {
-    userState[from].step = "ask_name";
-    reply = "Please send your name.";
-  } else if (userState[from].step === "ask_name") {
+  }
+
+  // STEP FLOW FIRST
+  else if (userState[from].step === "ask_name") {
     userState[from].name = incomingMsg;
     userState[from].step = "ask_phone";
     reply = "Please send your phone number.";
@@ -97,6 +88,22 @@ app.post("/whatsapp", (req, res) => {
       `Our team will contact you soon.`;
 
     resetUser(from);
+  }
+
+  // MENU OPTIONS AFTER STEP FLOW
+  else if (cleanMsg === "1") {
+    reply = "Haircut price is ₹200.\n\nReply 5 to book appointment or type menu.";
+  } else if (cleanMsg === "2") {
+    reply = "Beard Set price is ₹150.\n\nReply 5 to book appointment or type menu.";
+  } else if (cleanMsg === "3") {
+    reply = "Hair Spa price is ₹1400.\n\nReply 5 to book appointment or type menu.";
+  } else if (cleanMsg === "4") {
+    reply = "Unisex Salon service is available.\n\nReply 5 to book appointment or type menu.";
+  } else if (cleanMsg === "5") {
+    userState[from].step = "ask_name";
+    reply = "Please send your name.";
+  } else if (cleanMsg === "6") {
+    reply = `Our address is:\n${CLIENT.address}`;
   } else {
     reply = "Please type hi to see the menu.";
   }
