@@ -1,22 +1,25 @@
 {
-  "name": "whatsapp-bot",
+  "name": "whatsapp-ai-bot",
   "version": "1.0.0",
-  "description": "WhatsApp booking bot for businesses",
+  "description": "Reusable WhatsApp chatbot for lead capture and appointment booking",
   "main": "server.js",
+  "type": "commonjs",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": [
     "whatsapp",
-    "bot",
+    "chatbot",
     "twilio",
+    "lead-capture",
     "automation"
   ],
-  "author": "Uzair",
+  "author": "AI Agency",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "axios": "^1.8.2",
+    "dotenv": "^16.4.5",
     "express": "^4.21.2",
     "resend": "^3.2.0",
     "twilio": "^5.13.0"

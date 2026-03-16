@@ -1,4 +1,7 @@
+require("dotenv").config();
+
 const express = require("express");
+const axios = require("axios");
 const { MessagingResponse } = require("twilio").twiml;
 const { Resend } = require("resend");
 const CLIENT = require("./hairclub");
@@ -8,7 +11,7 @@ const app = express();
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-const resend = new Resend("re_4LEmVHxv_C6PS1rvy855FdsuZvbArBdP4");
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const userState = {};
 
@@ -24,7 +27,7 @@ function resetUser(from) {
 
 async function sendLeadEmail(data) {
   await resend.emails.send({
-    from: "The Hair Club <onboarding@resend.dev>",
+    from: `${CLIENT.businessName} <onboarding@resend.dev>`,
     to: [CLIENT.leadEmail],
     subject: `New Appointment - ${CLIENT.businessName}`,
     text:
@@ -36,6 +39,21 @@ async function sendLeadEmail(data) {
       `Business: ${CLIENT.businessName}\n` +
       `Address: ${CLIENT.address}\n` +
       `Source: WhatsApp Bot`
+  });
+}
+
+async function saveLeadToGoogleSheet(data) {
+  if (!process.env.GOOGLE_SCRIPT_URL) {
+    console.log("GOOGLE_SCRIPT_URL missing");
+    return;
+  }
+
+  await axios.post(process.env.GOOGLE_SCRIPT_URL, {
+    name: data.name,
+    phone: data.phone,
+    service: data.service,
+    time: data.time,
+    source: "WhatsApp Bot"
   });
 }
 
@@ -97,6 +115,7 @@ app.post("/whatsapp", async (req, res) => {
       userState[from].time = incomingMsg;
 
       try {
+        await saveLeadToGoogleSheet(userState[from]);
         await sendLeadEmail(userState[from]);
 
         reply =
@@ -107,9 +126,9 @@ app.post("/whatsapp", async (req, res) => {
           `Preferred Time: ${userState[from].time}\n\n` +
           `Our team will contact you soon.`;
       } catch (emailError) {
-        console.error("EMAIL ERROR:", emailError);
+        console.error("EMAIL/SHEET ERROR:", emailError);
         reply =
-          "Your appointment request was received, but email notification failed. Please try again.";
+          "Your appointment request was received, but notification failed. Please try again.";
       }
 
       resetUser(from);
@@ -142,7 +161,7 @@ app.post("/whatsapp", async (req, res) => {
   return res.status(200).send(twiml.toString());
 });
 
-const PORT = process.env.PORT || 10000;
+const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
   console.log("Server running on port " + PORT);
