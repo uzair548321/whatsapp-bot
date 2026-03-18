@@ -1,7 +1,6 @@
 require("dotenv").config();
 
 const express = require("express");
-const axios = require("axios");
 const { MessagingResponse } = require("twilio").twiml;
 const { Resend } = require("resend");
 const CLIENT = require("./hairclub");
@@ -47,31 +46,6 @@ function getServiceName(input) {
   const value = String(input || "").trim();
   if (CLIENT.services[value]) return CLIENT.services[value].name;
   return value;
-}
-
-async function saveLeadToGoogleSheet(data) {
-  if (!process.env.GOOGLE_SCRIPT_URL) {
-    throw new Error("GOOGLE_SCRIPT_URL missing in .env");
-  }
-
-  const response = await axios.post(
-    process.env.GOOGLE_SCRIPT_URL,
-    {
-      name: data.name,
-      phone: data.phone,
-      service: data.service,
-      time: data.time,
-      source: "WhatsApp Bot"
-    },
-    {
-      headers: {
-        "Content-Type": "application/json"
-      },
-      timeout: 15000
-    }
-  );
-
-  return response.data;
 }
 
 async function sendLeadEmail(data) {
@@ -135,35 +109,21 @@ app.post("/whatsapp", async (req, res) => {
     } else if (userState[from].step === "ask_time") {
       userState[from].time = incomingMsg;
 
-      let sheetSaved = false;
-      let emailSent = false;
-
-      try {
-        const sheetResult = await saveLeadToGoogleSheet(userState[from]);
-        sheetSaved = true;
-        console.log("GOOGLE SHEET SUCCESS:", sheetResult);
-      } catch (sheetError) {
-        console.error("GOOGLE SHEET ERROR:", sheetError.response?.data || sheetError.message);
-      }
-
       try {
         const emailResult = await sendLeadEmail(userState[from]);
-        emailSent = true;
         console.log("EMAIL SUCCESS:", emailResult);
+
+        reply =
+          `Thank you! Your appointment request has been received ✅\n\n` +
+          `Name: ${userState[from].name}\n` +
+          `Phone: ${userState[from].phone}\n` +
+          `Service: ${userState[from].service}\n` +
+          `Preferred Time: ${userState[from].time}\n\n` +
+          `Our team will contact you soon.`;
       } catch (emailError) {
         console.error("EMAIL ERROR:", emailError.response?.data || emailError.message);
-      }
-
-      reply =
-        `Thank you! Your appointment request has been received ✅\n\n` +
-        `Name: ${userState[from].name}\n` +
-        `Phone: ${userState[from].phone}\n` +
-        `Service: ${userState[from].service}\n` +
-        `Preferred Time: ${userState[from].time}\n\n` +
-        `Our team will contact you soon.`;
-
-      if (!sheetSaved && !emailSent) {
-        reply = `Your details have been received, but notification setup is incomplete.`;
+        reply =
+          `Your details have been received, but email notification failed.`;
       }
 
       resetUser(from);
