@@ -25,8 +25,57 @@ function resetUser(from) {
   };
 }
 
+function isGreeting(text) {
+  const msg = String(text || "").toLowerCase().trim();
+  return ["hi", "hii", "hiii", "hello", "helo", "hey", "hy", "start", "menu", "reset"].includes(msg);
+}
+
+function getWelcomeMessage() {
+  return (
+    `Hello! Welcome to ${CLIENT.businessName} ✨\n\n` +
+    `How can we help you today?\n\n` +
+    `1️⃣ Haircut — ₹200\n` +
+    `2️⃣ Beard Set — ₹150\n` +
+    `3️⃣ Hair Spa — ₹1400\n` +
+    `4️⃣ Unisex Salon\n` +
+    `5️⃣ Book Appointment\n` +
+    `6️⃣ Address`
+  );
+}
+
+function getServiceName(input) {
+  const value = String(input || "").trim();
+  if (CLIENT.services[value]) return CLIENT.services[value].name;
+  return value;
+}
+
+async function saveLeadToGoogleSheet(data) {
+  if (!process.env.GOOGLE_SCRIPT_URL) {
+    throw new Error("GOOGLE_SCRIPT_URL missing in .env");
+  }
+
+  const response = await axios.post(
+    process.env.GOOGLE_SCRIPT_URL,
+    {
+      name: data.name,
+      phone: data.phone,
+      service: data.service,
+      time: data.time,
+      source: "WhatsApp Bot"
+    },
+    {
+      headers: {
+        "Content-Type": "application/json"
+      },
+      timeout: 15000
+    }
+  );
+
+  return response.data;
+}
+
 async function sendLeadEmail(data) {
-  await resend.emails.send({
+  return await resend.emails.send({
     from: `${CLIENT.businessName} <onboarding@resend.dev>`,
     to: [CLIENT.leadEmail],
     subject: `New Appointment - ${CLIENT.businessName}`,
@@ -42,21 +91,6 @@ async function sendLeadEmail(data) {
   });
 }
 
-async function saveLeadToGoogleSheet(data) {
-  if (!process.env.GOOGLE_SCRIPT_URL) {
-    console.log("GOOGLE_SCRIPT_URL missing");
-    return;
-  }
-
-  await axios.post(process.env.GOOGLE_SCRIPT_URL, {
-    name: data.name,
-    phone: data.phone,
-    service: data.service,
-    time: data.time,
-    source: "WhatsApp Bot"
-  });
-}
-
 app.get("/", (req, res) => {
   res.send(`${CLIENT.businessName} bot is running`);
 });
@@ -67,7 +101,7 @@ app.post("/whatsapp", async (req, res) => {
 
   try {
     const incomingMsg = String(req.body.Body || "").trim();
-    const cleanMsg = incomingMsg.toLowerCase();
+    const cleanMsg = incomingMsg.toLowerCase().trim();
     const from = String(req.body.From || "unknown");
 
     if (!userState[from]) {
@@ -78,14 +112,9 @@ app.post("/whatsapp", async (req, res) => {
     console.log("MSG:", incomingMsg);
     console.log("STEP BEFORE:", userState[from].step);
 
-    if (
-      cleanMsg === "hi" ||
-      cleanMsg === "hello" ||
-      cleanMsg === "menu" ||
-      cleanMsg === "reset"
-    ) {
+    if (isGreeting(cleanMsg)) {
       resetUser(from);
-      reply = CLIENT.menuText;
+      reply = getWelcomeMessage();
     } else if (userState[from].step === "ask_name") {
       userState[from].name = incomingMsg;
       userState[from].step = "ask_phone";
@@ -100,57 +129,62 @@ app.post("/whatsapp", async (req, res) => {
         "3 Hair Spa\n" +
         "4 Unisex Salon";
     } else if (userState[from].step === "ask_service") {
-      let selectedService = "";
-
-      if (incomingMsg === "1") selectedService = "Haircut";
-      else if (incomingMsg === "2") selectedService = "Beard Set";
-      else if (incomingMsg === "3") selectedService = "Hair Spa";
-      else if (incomingMsg === "4") selectedService = "Unisex Salon";
-      else selectedService = incomingMsg;
-
-      userState[from].service = selectedService;
+      userState[from].service = getServiceName(incomingMsg);
       userState[from].step = "ask_time";
       reply = "Please send your preferred time.";
     } else if (userState[from].step === "ask_time") {
       userState[from].time = incomingMsg;
 
-      try {
-        await saveLeadToGoogleSheet(userState[from]);
-        await sendLeadEmail(userState[from]);
+      let sheetSaved = false;
+      let emailSent = false;
 
-        reply =
-          `Thank you! Your appointment request has been received.\n\n` +
-          `Name: ${userState[from].name}\n` +
-          `Phone: ${userState[from].phone}\n` +
-          `Service: ${userState[from].service}\n` +
-          `Preferred Time: ${userState[from].time}\n\n` +
-          `Our team will contact you soon.`;
+      try {
+        const sheetResult = await saveLeadToGoogleSheet(userState[from]);
+        sheetSaved = true;
+        console.log("GOOGLE SHEET SUCCESS:", sheetResult);
+      } catch (sheetError) {
+        console.error("GOOGLE SHEET ERROR:", sheetError.response?.data || sheetError.message);
+      }
+
+      try {
+        const emailResult = await sendLeadEmail(userState[from]);
+        emailSent = true;
+        console.log("EMAIL SUCCESS:", emailResult);
       } catch (emailError) {
-        console.error("EMAIL/SHEET ERROR:", emailError);
-        reply =
-          "Your appointment request was received, but notification failed. Please try again.";
+        console.error("EMAIL ERROR:", emailError.response?.data || emailError.message);
+      }
+
+      reply =
+        `Thank you! Your appointment request has been received ✅\n\n` +
+        `Name: ${userState[from].name}\n` +
+        `Phone: ${userState[from].phone}\n` +
+        `Service: ${userState[from].service}\n` +
+        `Preferred Time: ${userState[from].time}\n\n` +
+        `Our team will contact you soon.`;
+
+      if (!sheetSaved && !emailSent) {
+        reply = `Your details have been received, but notification setup is incomplete.`;
       }
 
       resetUser(from);
     } else if (cleanMsg === "1") {
-      reply = "Haircut price is ₹200.\n\nReply 5 to book appointment or type menu.";
+      reply = "Haircut price is ₹200.\n\nReply 5 to book appointment or type hi for menu.";
     } else if (cleanMsg === "2") {
-      reply = "Beard Set price is ₹150.\n\nReply 5 to book appointment or type menu.";
+      reply = "Beard Set price is ₹150.\n\nReply 5 to book appointment or type hi for menu.";
     } else if (cleanMsg === "3") {
-      reply = "Hair Spa price is ₹1400.\n\nReply 5 to book appointment or type menu.";
+      reply = "Hair Spa price is ₹1400.\n\nReply 5 to book appointment or type hi for menu.";
     } else if (cleanMsg === "4") {
-      reply = "Unisex Salon service is available.\n\nReply 5 to book appointment or type menu.";
+      reply = "Unisex Salon service is available.\n\nReply 5 to book appointment or type hi for menu.";
     } else if (cleanMsg === "5") {
       userState[from].step = "ask_name";
-      reply = "Please send your name.";
+      reply = "Great! Please send your name.";
     } else if (cleanMsg === "6") {
       reply = `Our address is:\n${CLIENT.address}`;
     } else {
-      reply = "Please type hi to see the menu.";
+      reply = "Hello! Please type hi to see the menu.";
     }
 
     console.log("STEP AFTER:", userState[from]?.step);
-    console.log("STATE:", userState[from]);
   } catch (error) {
     console.error("BOT ERROR:", error);
     reply = "Something went wrong. Please type hi to restart.";
